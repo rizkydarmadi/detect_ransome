@@ -9,6 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score
 from lightgbm import LGBMClassifier, early_stopping, log_evaluation
 
+# Extract features from PE file (Portable Executable)
 def extract_pe_features(file_path):
     try:
         pe = pefile.PE(file_path)
@@ -25,6 +26,7 @@ def extract_pe_features(file_path):
         print(f"Error extracting features: {e}")
         return None
 
+# Load ransomware and normal file data
 def load_real_ransomware_data():
     X, Y = [], []
     ransomware_dir = "./data/ransomware/"
@@ -44,6 +46,7 @@ def load_real_ransomware_data():
     
     return np.array(X), np.array(Y)
 
+# Train the LightGBM model with the real dataset
 X_real, y_real = load_real_ransomware_data()
 X_train, X_test, y_train, y_test = train_test_split(X_real, y_real, test_size=0.2, random_state=42)
 
@@ -61,11 +64,14 @@ model.fit(
     callbacks=[early_stopping(10), log_evaluation(1)]
 )
 
+# Save model
 with open("model.pkl", "wb") as f:
     pickle.dump(model, f)
 
+# Initialize FastAPI application
 app = FastAPI()
 
+# Upload file and classify as ransomware or normal
 @app.post("/upload/")
 async def upload_file(file: UploadFile = File(...)):
     start_time = time.time()
@@ -79,6 +85,9 @@ async def upload_file(file: UploadFile = File(...)):
     
     if features is None:
         return {"error": "Invalid PE file"}
+    
+    # Reshape to ensure it's a 2D array (for a single sample)
+    features = features.reshape(1, -1)
     
     with open("model.pkl", "rb") as f:
         model = pickle.load(f)
